@@ -14,35 +14,81 @@ function tdrows($elements) {
     return $str;
 }
 
-function getdata($file) {
+function escape($m) {
+	return "\"".str_replace(array(";", "\""), array(",", "'"), trim($m))."\"; ";
+}
+
+
+function exportdata($arr_cont, $current_ln, $file) {
     
     //getting path
     $path = explode('/', $file);
+    $aux_file = $path[3];
+    
     array_pop($path);
     $path = implode('/', $path)."/"; 
     
+    //getting file name
+    $aux_file = explode('.', $aux_file);
+    $file = $aux_file[0]."_conteudo.csv";
+    
+    //exporting data
+    $handle = fopen($path.$file, "a");
+    if ($handle) {
+        $head = "";
+        $content = "";
+        $cnt_field = 0;
+        foreach ($arr_cont as $arr_ch_cont) {
+            //if ($cnt_field == 12) {
+            //    handledownload($cnt_field["content"]);    
+            //}
+            if ($current_ln < 1) {
+                $head .= str_replace(":", "", escape($arr_ch_cont["head"]));
+            } 
+            $content .= escape($arr_ch_cont["content"]);
+            ++$cnt_field;
+        }
+        if ($current_ln < 1) {
+            fwrite($handle, substr($head, 0 , -2)."\n");
+        }
+        fwrite($handle, substr($content, 0 , -2)."\n");
+        fclose($handle);
+    }
+    
+}
+
+function getdata($file) {
     if (($handle = fopen($file, "r")) !== FALSE) {
+        $lines = 0;
         while (($data = fgetcsv($handle, 1000, ";")) !== FALSE) {
             $arr_cont = array();
-            $lines = 0;
-
-            $contents = file_get_contents("a.html");
+            $cnt_ln = 0;
+            
+            $contents = file_get_contents(trim($data[1]));
+            $aaa = fopen("./output/dedao/example/".$data[0].".html", "a");
+            fwrite($aaa, $contents);
+            fclose($aaa);
             $DOM = new DOMDocument;
             @$DOM->loadHTML($contents);
 
             $items = $DOM->getElementsByTagName('tr');
             foreach ($items as $node) {
                 foreach ($node->childNodes as $nodechild) {
+                    $arr_replace = array("\r", "\r\n", "<br>", "<br />", ">", "\t");
                     if ($nodechild->nodeName == "th") {
-                        $arr_cont[$lines]["head"] = nl2br($nodechild->nodeValue);
+                        //$arr_cont[$cnt_ln]["head"] = trim(str_replace($arr_replace, "||", nl2br($nodechild->nodeValue)));
+                        $arr_cont[$cnt_ln]["head"] = preg_replace('#\s+#', ' ', str_replace("\n", "|", $nodechild->nodeValue));                    
                     } else {
-                        $arr_cont[$lines]["content"] = nl2br($nodechild->nodeValue);
+                        $arr_cont[$cnt_ln]["content"] = preg_replace('#\s+#', ' ', $nodechild->nodeValue);
                     }
                 }
-                ++$lines;
+                ++$cnt_ln;
             }
+            exportdata($arr_cont, $lines, $file);
+            ++$lines;
         }
     }
+    return true;
 }
 
 function handlefiles($tmp, $lines, $action = "") {
@@ -92,7 +138,7 @@ function getlinks($url, &$output = "", $pag = 1) {
     sleep(5);
 }
 //getlinks("http://bdtd.ibict.br/vufind/Search/Results?lookfor=ded%C3%A3o&type=AllFields", $file);
-$file = "./output/dedao/2020-03-13-dedao.csv";
+$file = "./output/dedao/2020-03-21-dedao.csv";
 getdata($file);
 
 ?>
